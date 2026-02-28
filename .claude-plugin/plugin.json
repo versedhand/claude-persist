@@ -1,0 +1,9 @@
+{
+  "name": "claude-persist",
+  "version": "2.0.0",
+  "description": "Fork of ralph-wiggum with session isolation, exit 2 protocol fix, and set -e crash fix. Keeps Claude Code sessions alive via stop hook.",
+  "author": {
+    "name": "Isaac Robinson",
+    "email": "isaac@rirobinson.com"
+  }
+}
