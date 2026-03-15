@@ -91,9 +91,7 @@ NEXT_ITERATION=$((ITERATION + 1))
 PROMPT_TEXT=$(awk '/^---$/{i++; next} i>=2' "$RALPH_STATE_FILE")
 
 if [[ -z "$PROMPT_TEXT" ]]; then
-  echo "Ralph loop: No prompt found in state file. Stopping." >&2
-  rm -f "$RALPH_STATE_FILE"
-  exit 0
+  PROMPT_TEXT="Continue working. Do not stop."
 fi
 
 # Update iteration in state file
