@@ -4,23 +4,16 @@
 # Prevents session exit when a ralph-loop is active.
 # Feeds the original prompt back to continue the loop.
 #
-# Fixes applied (vs upstream):
-#   1. Session-scoped state files (fixes #15047 cross-session interference)
-#   2. Exit 2 + stderr protocol (fixes #10412 plugin hook blocking)
-#   3. Removed set -euo pipefail (fixes silent crash on grep no-match)
-#   4. stop_hook_active guard (prevents infinite loops)
+# Protocol (Claude Code 2.1.79+):
+#   Exit 0 + JSON {"decision": "block", "reason": "..."} on stdout
+#   The "reason" is injected back into Claude's context as a message.
+#   Exit 2 only sends stderr as feedback — JSON is NOT parsed.
 
 # DO NOT use set -euo pipefail — grep returns exit 1 on no match,
 # which with pipefail propagates and with set -e kills the script silently.
 
 # Read hook input from stdin
 HOOK_INPUT=$(cat)
-
-# Prevent infinite loops: if stop hook already active, allow exit
-STOP_HOOK_ACTIVE=$(echo "$HOOK_INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
-if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
-  exit 0
-fi
 
 # Extract session ID for session-scoped state file
 SESSION_ID=$(echo "$HOOK_INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
@@ -33,6 +26,12 @@ RALPH_STATE_FILE="/tmp/ralph-loop-${SESSION_ID}.md"
 if [[ ! -f "$RALPH_STATE_FILE" ]]; then
   exit 0
 fi
+
+# NOTE: We intentionally do NOT check stop_hook_active here.
+# Quality gates check it to prevent infinite loops (block once, then allow).
+# Ralph loops are SUPPOSED to block infinitely — that's the whole point.
+# The loop ends when: max iterations reached, completion promise detected,
+# or the user runs /cancel-ralph (which deletes the state file).
 
 # Parse markdown frontmatter — use || true on all greps to prevent crash
 FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$RALPH_STATE_FILE")
@@ -99,13 +98,16 @@ TEMP_FILE="${RALPH_STATE_FILE}.tmp.$$"
 sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" "$RALPH_STATE_FILE" > "$TEMP_FILE"
 mv "$TEMP_FILE" "$RALPH_STATE_FILE"
 
-# Build status line
+# Build reason message
 if [[ -n "$COMPLETION_PROMISE" ]] && [[ "$COMPLETION_PROMISE" != "null" ]]; then
   STATUS="Ralph iteration $NEXT_ITERATION/$MAX_ITERATIONS | Complete: <promise>$COMPLETION_PROMISE</promise>"
 else
   STATUS="Ralph iteration $NEXT_ITERATION/${MAX_ITERATIONS:-∞}"
 fi
 
-# Block exit: exit 2 + reason on stderr (NOT JSON stdout — that's the #10412 bug)
-echo "[$STATUS] $PROMPT_TEXT" >&2
-exit 2
+REASON="[$STATUS] $PROMPT_TEXT"
+
+# Block exit: exit 0 + JSON decision on stdout
+# The "reason" field is injected back into Claude's context
+jq -n --arg reason "$REASON" '{decision: "block", reason: $reason}'
+exit 0
