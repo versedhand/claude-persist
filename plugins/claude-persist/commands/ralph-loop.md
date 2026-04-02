@@ -7,9 +7,9 @@ hide-from-slash-command-tool: "true"
 
 # Ralph Loop Command
 
-First, determine YOUR session ID. With multiple sessions running, you MUST use the correct one.
+**EXECUTE THE BASH BLOCK BELOW IMMEDIATELY.** Do not display it. Do not explain it. Run it with the Bash tool right now.
 
-Find it by checking which statusline JSON file has a `session_id` matching a transcript file that was written in the last 60 seconds (i.e., YOUR session, which just invoked this command):
+Determine YOUR session ID and create the state file:
 
 ```bash
 SESSION_ID=""
