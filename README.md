@@ -174,6 +174,24 @@ Keep trying until success. The loop handles retry logic automatically.
 - Original technique: https://ghuntley.com/ralph/
 - Ralph Orchestrator: https://github.com/mikeyobrien/ralph-orchestrator
 
+## Fork Notes
+
+This plugin is a **fork** of `anthropics/claude-code/plugins/ralph-wiggum`. The fork exists because of two issues that aren't fixed in upstream as of Apr 2026:
+
+1. **Multi-session interference.** Upstream uses `.claude/ralph-loop.local.md` as the state file path. This is project-scoped, so two Claude Code sessions in the same project share the same loop state — one session's `/ralph-loop` activates the other. The fork uses `/tmp/ralph-loop-{SESSION_ID}.md` for session isolation. Each session has its own state file keyed on its session ID.
+
+2. **Stop hook protocol mismatch.** Upstream's stop hook uses an old `set -euo pipefail` + `exit 2 + stderr` protocol. Two problems: `set -euo pipefail` causes silent crashes when grep doesn't match (very common in this hook). Exit 2 + stderr only sends feedback as text, not as the JSON decision protocol that Claude Code 2.1.79+ supports. The fork removes `set -euo pipefail` (with documented reasoning), adds the `stop_hook_active` guard to prevent infinite loops, and uses the JSON decision protocol on stdout.
+
+3. **Session ID propagation.** The fork's `setup-ralph-loop.sh` requires the session ID as the first argument, passed by the slash command which determines it from `/tmp/statusline-{SESSION_ID}.json` lookup. Upstream relies on the implicit project-scoped path which has the multi-session bug.
+
+**Maintained at:** https://github.com/versedhand/claude-persist
+
+**Upstream commits since fork (verified Apr 7 2026):**
+- `c2022d3` fix(ralph-wiggum): add :* to allowed-tools pattern (#16522) — minor, doesn't address fork issues
+- `5c92b97` fix(ralph-wiggum): move multi-line bash from command to setup script (#16320) — minor, doesn't address fork issues
+
+If upstream eventually fixes the multi-session and stop-hook protocol issues, this fork can be retired. Until then, it remains necessary.
+
 ## For Help
 
 Run `/help` in Claude Code for detailed command reference and examples.
