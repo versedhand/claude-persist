@@ -12,15 +12,19 @@ hide-from-slash-command-tool: "true"
 Determine YOUR session ID and create the state file:
 
 ```bash
+# Find the session with the MOST RECENTLY modified transcript.
+# With multiple active sessions, the one running this command will have
+# the freshest transcript (it's actively writing tool calls to it).
 SESSION_ID=""
+NEWEST_AGE=999999
 for f in /tmp/statusline-*.json; do
   sid=$(jq -r '.session_id // ""' "$f" 2>/dev/null)
   transcript="$HOME/.claude/projects/-home-rrobinson-corpus-isaac-life-corpus/${sid}.jsonl"
   if [ -f "$transcript" ]; then
     age=$(( $(date +%s) - $(stat -c %Y "$transcript") ))
-    if [ "$age" -lt 60 ]; then
+    if [ "$age" -lt 60 ] && [ "$age" -lt "$NEWEST_AGE" ]; then
+      NEWEST_AGE="$age"
       SESSION_ID="$sid"
-      break
     fi
   fi
 done

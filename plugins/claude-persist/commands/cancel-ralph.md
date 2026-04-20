@@ -9,15 +9,17 @@ hide-from-slash-command-tool: "true"
 Cancel the active Ralph loop. Find YOUR session ID first:
 
 ```bash
+# Find session with MOST RECENTLY modified transcript (not first match)
 SESSION_ID=""
+NEWEST_AGE=999999
 for f in /tmp/statusline-*.json; do
   sid=$(jq -r '.session_id // ""' "$f" 2>/dev/null)
   transcript="$HOME/.claude/projects/-home-rrobinson-corpus-isaac-life-corpus/${sid}.jsonl"
   if [ -f "$transcript" ]; then
     age=$(( $(date +%s) - $(stat -c %Y "$transcript") ))
-    if [ "$age" -lt 60 ]; then
+    if [ "$age" -lt 60 ] && [ "$age" -lt "$NEWEST_AGE" ]; then
+      NEWEST_AGE="$age"
       SESSION_ID="$sid"
-      break
     fi
   fi
 done
